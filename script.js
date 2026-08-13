@@ -75,12 +75,9 @@ async function cleanupExpiredRemote() {
   }
 }
 
-// REMOVE the entire window.supabase block
-
 supabaseClient = supabase;
 useRemoteStorage = true;
 console.log("Supabase initialized via ESM import");
-
 
 function getLocalMessages() {
   try {
