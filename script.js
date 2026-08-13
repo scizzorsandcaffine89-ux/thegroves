@@ -4,8 +4,10 @@ const passwords = {
   'Hy': 'Hydro'
 };
 
-const supabaseUrl = 'https://oqtykphsftvlcxruskpu.supabase.co';
-const supabaseAnonKey = 'sb_publishable_RG6RHZ_DW1aXnxt7qgeFVQ_O3GGMJgk';
+const supabase = createClient(
+'https://oqtykphsftvlcxruskpu.supabase.co';
+'sb_publishable_RG6RHZ_DW1aXnxt7qgeFVQ_O3GGMJgk'
+);
 
 let currentUser = localStorage.getItem('chatUser') || null;
 let messages = [];
