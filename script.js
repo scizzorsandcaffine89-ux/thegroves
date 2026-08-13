@@ -12,8 +12,16 @@ let supabaseClient = null;
 let useRemoteStorage = false;
 
 if (window.supabase && supabaseUrl && supabaseAnonKey && !supabaseUrl.includes('PASTE_') && !supabaseAnonKey.includes('PASTE_')) {
-  supabaseClient = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
-  useRemoteStorage = true;
+  try {
+    supabaseClient = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
+    useRemoteStorage = true;
+    console.log('Supabase initialized successfully');
+  } catch (e) {
+    console.log('Supabase init failed:', e);
+    useRemoteStorage = false;
+  }
+} else {
+  console.log('Supabase not available, using local storage only');
 }
 
 function getLocalMessages() {
@@ -60,24 +68,32 @@ async function loadMessages() {
 }
 
 async function saveMessages() {
+  const messageToSave = messages[messages.length - 1];
+  if (!messageToSave) return;
+
+  // Always try Supabase first
   if (useRemoteStorage && supabaseClient) {
     try {
+      console.log('Saving to Supabase:', messageToSave);
       const { error } = await supabaseClient.from('messages').insert([
         {
-          user: currentUser,
-          text: messages[messages.length - 1].text,
-          timestamp: messages[messages.length - 1].timestamp
+          user: messageToSave.user,
+          text: messageToSave.text,
+          timestamp: messageToSave.timestamp
         }
       ]);
 
-      if (!error) {
-        return;
+      if (error) {
+        console.log('Supabase save error:', error.message);
+      } else {
+        console.log('Message saved to Supabase successfully');
       }
     } catch (e) {
-      console.log('Remote save failed, using local');
+      console.log('Supabase save exception:', e.message);
     }
   }
 
+  // Always save locally too
   saveLocalMessages();
 }
 
