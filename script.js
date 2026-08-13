@@ -1,6 +1,6 @@
 const passwords = {
-  Sy: 'Siren',
-  Hy: 'Hydro'
+  'Sy': 'Siren',
+  'Hy': 'Hydro'
 };
 
 const supabaseUrl = 'https://oqtykphsftvlcxruskpu.supabase.co';
