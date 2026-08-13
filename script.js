@@ -5,8 +5,8 @@ const passwords = {
 };
 
 const supabase = createClient(
-'https://oqtykphsftvlcxruskpu.supabase.co',
-'sb_publishable_RG6RHZ_DW1aXnxt7qgeFVQ_O3GGMJgk'
+"https://oqtykphsftvlcxruskpu.supabase.co",
+"sb_publishable_RG6RHZ_DW1aXnxt7qgeFVQ_O3GGMJgk"
 );
 
 let currentUser = localStorage.getItem('chatUser') || null;
