@@ -10,9 +10,43 @@ let currentUser = localStorage.getItem('chatUser') || null;
 let messages = [];
 let supabaseClient = null;
 let useRemoteStorage = false;
+let syncOk = null; // null = unknown, true = last remote op succeeded, false = it failed
 
 // Messages stick around for about 3 days, then quietly age out.
 const MESSAGE_LIFETIME_MS = 3 * 24 * 60 * 60 * 1000;
+
+const USER_COLORS = {
+  Hy: '#5865f2', // blurple
+  Sy: '#eb459e'  // pink
+};
+
+function userColor(userKey) {
+  return USER_COLORS[userKey] || '#949ba4';
+}
+
+function updateSyncUI() {
+  const dot = document.getElementById('syncDot');
+  const banner = document.getElementById('connectionBanner');
+  if (!dot || !banner) return;
+
+  if (!useRemoteStorage) {
+    dot.style.background = '#949ba4';
+    dot.title = 'Local only — Supabase did not load on this device';
+    banner.textContent = "Running on this device only right now — messages won't reach the other device until this reconnects.";
+    banner.classList.remove('hidden');
+    banner.classList.remove('banner-error');
+  } else if (syncOk === false) {
+    dot.style.background = '#f23f42';
+    dot.title = 'Sync error — check console for details';
+    banner.textContent = 'Sync error — the last message may not have reached the other device.';
+    banner.classList.remove('hidden');
+    banner.classList.add('banner-error');
+  } else {
+    dot.style.background = '#23a55a';
+    dot.title = 'Synced';
+    banner.classList.add('hidden');
+  }
+}
 
 function isExpired(timestamp) {
   const t = new Date(timestamp).getTime();
@@ -84,19 +118,24 @@ async function loadMessages() {
 
       if (!error && data) {
         messages = data;
+        syncOk = true;
         pruneExpiredMessages();
         saveLocalMessages();
         cleanupExpiredRemote();
+        updateSyncUI();
         return;
       }
+      syncOk = false;
     } catch (e) {
       console.log('Remote load failed, using local');
+      syncOk = false;
     }
   }
 
   messages = getLocalMessages();
   pruneExpiredMessages();
   saveLocalMessages();
+  updateSyncUI();
 }
 
 async function saveMessages() {
@@ -117,16 +156,20 @@ async function saveMessages() {
 
       if (error) {
         console.log('Supabase save error:', error.message);
+        syncOk = false;
       } else {
         console.log('Message saved to Supabase successfully');
+        syncOk = true;
       }
     } catch (e) {
       console.log('Supabase save exception:', e.message);
+      syncOk = false;
     }
   }
 
   // Always save locally too
   saveLocalMessages();
+  updateSyncUI();
 }
 
 function subscribeToMessages() {
@@ -145,7 +188,13 @@ function subscribeToMessages() {
           displayMessages();
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.log('Realtime channel issue:', status);
+          syncOk = false;
+          updateSyncUI();
+        }
+      });
   } catch (e) {
     console.log('Subscribe failed');
   }
@@ -165,6 +214,7 @@ function showChat() {
   if (friendNameEl) friendNameEl.textContent = friendName;
 
   displayMessages();
+  updateSyncUI();
   const input = document.getElementById('messageInput');
   if (input) input.focus();
 }
@@ -183,27 +233,44 @@ function renderTimestamp(timestamp) {
 function displayMessages() {
   const messagesList = document.getElementById('messagesList');
   if (!messagesList) return;
-  
+
   messagesList.innerHTML = '';
 
-  messages
-    .filter((msg) => !isExpired(msg.timestamp))
-    .forEach((msg) => {
-    const messageDiv = document.createElement('div');
-    const isMine = msg.user === currentUser;
-    messageDiv.className = 'message ' + (isMine ? 'sent' : 'received');
+  const visible = messages.filter((msg) => !isExpired(msg.timestamp));
+  let lastUser = null;
 
+  visible.forEach((msg) => {
     const senderName = msg.user === 'Sy' ? 'Siren' : 'Hydro';
+    const color = userColor(msg.user);
+    const grouped = msg.user === lastUser;
+    lastUser = msg.user;
 
-    messageDiv.innerHTML = `
-      <div class="message-content">
-        <div class="message-sender">${senderName}</div>
-        <div class="message-text">${escapeHtml(msg.text)}</div>
-        <div class="message-time">${renderTimestamp(msg.timestamp)}</div>
-      </div>
-    `;
+    const row = document.createElement('div');
+    row.className = 'message-row' + (grouped ? ' grouped' : '');
 
-    messagesList.appendChild(messageDiv);
+    if (grouped) {
+      row.innerHTML = `
+        <div class="message-gutter"><span class="hover-time">${renderTimestamp(msg.timestamp)}</span></div>
+        <div class="message-body">
+          <div class="message-text">${escapeHtml(msg.text)}</div>
+        </div>
+      `;
+    } else {
+      row.innerHTML = `
+        <div class="message-gutter">
+          <div class="message-avatar" style="background:${color}">${senderName.charAt(0)}</div>
+        </div>
+        <div class="message-body">
+          <div class="message-meta">
+            <span class="message-author" style="color:${color}">${senderName}</span>
+            <span class="message-timestamp">${renderTimestamp(msg.timestamp)}</span>
+          </div>
+          <div class="message-text">${escapeHtml(msg.text)}</div>
+        </div>
+      `;
+    }
+
+    messagesList.appendChild(row);
   });
 
   messagesList.scrollTop = messagesList.scrollHeight;

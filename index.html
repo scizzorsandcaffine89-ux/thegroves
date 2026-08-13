@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
-    href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,500&family=Space+Mono:wght@400;700&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&display=swap"
     rel="stylesheet"
   />
   <link rel="stylesheet" href="styles.css" />
@@ -15,10 +15,12 @@
 <body>
   <div id="loginContainer" class="container">
     <div class="login-box">
-      <div class="login-icon">hello</div>
       <h1>Hello...</h1>
-      <input type="password" id="passwordInput" placeholder="Go on, enter the password." />
-      <button id="loginBtn" class="login-button">Login</button>
+      <div class="field">
+        <label for="passwordInput">Password</label>
+        <input type="password" id="passwordInput" placeholder="Go on, enter the password." />
+      </div>
+      <button id="loginBtn" class="login-button">Log In</button>
       <p id="errorMsg" class="error"></p>
     </div>
   </div>
@@ -26,17 +28,20 @@
   <div id="chatContainer" class="container hidden">
     <div class="chat-header">
       <div class="header-content">
-        <div class="header-avatar">the sanctuary?</div>
+        <span class="header-tag">the sanctuary?</span>
         <h2 id="friendName"></h2>
+        <span id="syncDot" class="sync-dot" title="Checking sync..."></span>
       </div>
-      <button id="logoutBtn" class="logout-btn">⟲</button>
+      <button id="logoutBtn" class="logout-btn" title="Log out">⟲</button>
     </div>
+
+    <div id="connectionBanner" class="connection-banner hidden"></div>
 
     <div id="messagesList" class="messages-list"></div>
 
     <div class="message-input-area">
-      <input type="text" id="messageInput" placeholder="Type a message..." />
-      <button id="sendBtn" class="send-button">→</button>
+      <input type="text" id="messageInput" placeholder="Message..." />
+      <button id="sendBtn" class="send-button" title="Send">➤</button>
     </div>
   </div>
 
