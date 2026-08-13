@@ -153,6 +153,7 @@ async function saveMessages() {
       const { error } = await supabaseClient.from('messages').insert([
         {
           sender: messageToSave.user,
+          recipient: messageToSave.user== 'Sy' ? 'Hy' : 'Sy' ,
           content: messageToSave.text,
           created_at: messageToSave.timestamp
         }
