@@ -75,18 +75,12 @@ async function cleanupExpiredRemote() {
   }
 }
 
-if (window.supabase && supabaseUrl && supabaseAnonKey && !supabaseUrl.includes('PASTE_') && !supabaseAnonKey.includes('PASTE_')) {
-  try {
-    supabaseClient = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
-    useRemoteStorage = true;
-    console.log('Supabase initialized successfully');
-  } catch (e) {
-    console.log('Supabase init failed:', e);
-    useRemoteStorage = false;
-  }
-} else {
-  console.log('Supabase not available, using local storage only');
-}
+// REMOVE the entire window.supabase block
+
+supabaseClient = supabase;
+useRemoteStorage = true;
+console.log("Supabase initialized via ESM import");
+
 
 function getLocalMessages() {
   try {
