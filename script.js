@@ -41,14 +41,18 @@ function clearUser() {
 
 async function loadMessages() {
   if (useRemoteStorage && supabase) {
-    const { data, error } = await supabase
-      .from('messages')
-      .select('*')
-      .order('timestamp', { ascending: true });
+    try {
+      const { data, error } = await supabase
+        .from('messages')
+        .select('*')
+        .order('timestamp', { ascending: true });
 
-    if (!error && data) {
-      messages = data;
-      return;
+      if (!error && data) {
+        messages = data;
+        return;
+      }
+    } catch (e) {
+      console.log('Remote load failed, using local');
     }
   }
 
@@ -57,16 +61,20 @@ async function loadMessages() {
 
 async function saveMessages() {
   if (useRemoteStorage && supabase) {
-    const { error } = await supabase.from('messages').insert([
-      {
-        user: currentUser,
-        text: messages[messages.length - 1].text,
-        timestamp: messages[messages.length - 1].timestamp
-      }
-    ]);
+    try {
+      const { error } = await supabase.from('messages').insert([
+        {
+          user: currentUser,
+          text: messages[messages.length - 1].text,
+          timestamp: messages[messages.length - 1].timestamp
+        }
+      ]);
 
-    if (!error) {
-      return;
+      if (!error) {
+        return;
+      }
+    } catch (e) {
+      console.log('Remote save failed, using local');
     }
   }
 
@@ -78,17 +86,21 @@ function subscribeToMessages() {
     return;
   }
 
-  supabase
-    .channel('messages-feed')
-    .on(
-      'postgres_changes',
-      { event: 'INSERT', schema: 'public', table: 'messages' },
-      (payload) => {
-        messages.push(payload.new);
-        displayMessages();
-      }
-    )
-    .subscribe();
+  try {
+    supabase
+      .channel('messages-feed')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'messages' },
+        (payload) => {
+          messages.push(payload.new);
+          displayMessages();
+        }
+      )
+      .subscribe();
+  } catch (e) {
+    console.log('Subscribe failed');
+  }
 }
 
 function showChat() {
@@ -102,7 +114,8 @@ function showChat() {
   document.getElementById('friendName').textContent = friendName;
 
   displayMessages();
-  document.getElementById('messageInput').focus();
+  const input = document.getElementById('messageInput');
+  if (input) input.focus();
 }
 
 function escapeHtml(text) {
@@ -118,6 +131,8 @@ function renderTimestamp(timestamp) {
 
 function displayMessages() {
   const messagesList = document.getElementById('messagesList');
+  if (!messagesList) return;
+  
   messagesList.innerHTML = '';
 
   messages.forEach((msg) => {
@@ -142,15 +157,27 @@ function displayMessages() {
 }
 
 async function login() {
-  const password = document.getElementById('passwordInput').value.trim();
+  const passwordInput = document.getElementById('passwordInput');
   const errorMsg = document.getElementById('errorMsg');
+  
+  if (!passwordInput || !errorMsg) {
+    console.error('Login elements not found');
+    return;
+  }
+  
+  const password = passwordInput.value.trim();
+  
+  console.log('Login attempt with:', password);
+  console.log('Valid passwords:', Object.keys(passwords));
 
   if (!passwords[password]) {
+    console.log('Invalid password');
     errorMsg.textContent = 'Invalid password';
-    document.getElementById('passwordInput').value = '';
+    passwordInput.value = '';
     return;
   }
 
+  console.log('Password valid, logging in as:', password);
   errorMsg.textContent = '';
   setUser(password);
   await loadMessages();
@@ -185,28 +212,72 @@ function handleLogout() {
   document.getElementById('errorMsg').textContent = '';
 }
 
-document.getElementById('loginBtn').addEventListener('click', login);
-document.getElementById('passwordInput').addEventListener('keypress', (event) => {
-  if (event.key === 'Enter') {
-    login();
+function setupEventListeners() {
+  console.log('Setting up event listeners...');
+  
+  const loginBtn = document.getElementById('loginBtn');
+  const passwordInput = document.getElementById('passwordInput');
+  const logoutBtn = document.getElementById('logoutBtn');
+  const sendBtn = document.getElementById('sendBtn');
+  const messageInput = document.getElementById('messageInput');
+  
+  if (loginBtn) {
+    loginBtn.addEventListener('click', () => {
+      console.log('Login button clicked');
+      login();
+    });
+  } else {
+    console.error('loginBtn not found');
   }
-});
+  
+  if (passwordInput) {
+    passwordInput.addEventListener('keypress', (event) => {
+      if (event.key === 'Enter') {
+        login();
+      }
+    });
+  } else {
+    console.error('passwordInput not found');
+  }
 
-document.getElementById('logoutBtn').addEventListener('click', handleLogout);
-document.getElementById('sendBtn').addEventListener('click', sendMessage);
-document.getElementById('messageInput').addEventListener('keypress', (event) => {
-  if (event.key === 'Enter') {
-    sendMessage();
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', handleLogout);
   }
-});
+  
+  if (sendBtn) {
+    sendBtn.addEventListener('click', sendMessage);
+  }
+  
+  if (messageInput) {
+    messageInput.addEventListener('keypress', (event) => {
+      if (event.key === 'Enter') {
+        sendMessage();
+      }
+    });
+  }
+  
+  console.log('Event listeners setup complete');
+}
 
 async function initApp() {
+  console.log('Initializing app...');
   await loadMessages();
   subscribeToMessages();
 
   if (currentUser && passwords[currentUser]) {
     showChat();
   }
+  console.log('App initialized');
 }
 
-initApp();
+// Wait for DOM to be fully loaded
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => {
+    setupEventListeners();
+    initApp();
+  });
+} else {
+  setupEventListeners();
+  initApp();
+}
+
