@@ -5,7 +5,7 @@ const passwords = {
 };
 
 const supabase = createClient(
-'https://oqtykphsftvlcxruskpu.supabase.co';
+'https://oqtykphsftvlcxruskpu.supabase.co',
 'sb_publishable_RG6RHZ_DW1aXnxt7qgeFVQ_O3GGMJgk'
 );
 
