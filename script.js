@@ -8,11 +8,11 @@ const supabaseAnonKey = 'sb_publishable_RG6RHZ_DW1aXnxt7qgeFVQ_O3GGMJgk';
 
 let currentUser = localStorage.getItem('chatUser') || null;
 let messages = [];
-let supabase = null;
+let supabaseClient = null;
 let useRemoteStorage = false;
 
 if (window.supabase && supabaseUrl && supabaseAnonKey && !supabaseUrl.includes('PASTE_') && !supabaseAnonKey.includes('PASTE_')) {
-  supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
+  supabaseClient = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
   useRemoteStorage = true;
 }
 
@@ -40,9 +40,9 @@ function clearUser() {
 }
 
 async function loadMessages() {
-  if (useRemoteStorage && supabase) {
+  if (useRemoteStorage && supabaseClient) {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await supabaseClient
         .from('messages')
         .select('*')
         .order('timestamp', { ascending: true });
@@ -60,9 +60,9 @@ async function loadMessages() {
 }
 
 async function saveMessages() {
-  if (useRemoteStorage && supabase) {
+  if (useRemoteStorage && supabaseClient) {
     try {
-      const { error } = await supabase.from('messages').insert([
+      const { error } = await supabaseClient.from('messages').insert([
         {
           user: currentUser,
           text: messages[messages.length - 1].text,
@@ -82,12 +82,12 @@ async function saveMessages() {
 }
 
 function subscribeToMessages() {
-  if (!useRemoteStorage || !supabase) {
+  if (!useRemoteStorage || !supabaseClient) {
     return;
   }
 
   try {
-    supabase
+    supabaseClient
       .channel('messages-feed')
       .on(
         'postgres_changes',
@@ -107,11 +107,14 @@ function showChat() {
   const loginContainer = document.getElementById('loginContainer');
   const chatContainer = document.getElementById('chatContainer');
 
+  if (!loginContainer || !chatContainer) return;
+
   loginContainer.classList.add('hidden');
   chatContainer.classList.remove('hidden');
 
   const friendName = currentUser === 'Sy' ? 'Hydro' : 'Siren';
-  document.getElementById('friendName').textContent = friendName;
+  const friendNameEl = document.getElementById('friendName');
+  if (friendNameEl) friendNameEl.textContent = friendName;
 
   displayMessages();
   const input = document.getElementById('messageInput');
@@ -140,7 +143,7 @@ function displayMessages() {
     const isMine = msg.user === currentUser;
     messageDiv.className = 'message ' + (isMine ? 'sent' : 'received');
 
-    const senderName = msg.user === 'Sy' ? 'Siren' : 'You';
+    const senderName = msg.user === 'Sy' ? 'Siren' : 'Hydro';
 
     messageDiv.innerHTML = `
       <div class="message-content">
@@ -186,6 +189,8 @@ async function login() {
 
 async function sendMessage() {
   const input = document.getElementById('messageInput');
+  if (!input) return;
+  
   const text = input.value.trim();
 
   if (!text || !currentUser) {
@@ -206,10 +211,15 @@ async function sendMessage() {
 
 function handleLogout() {
   clearUser();
-  document.getElementById('loginContainer').classList.remove('hidden');
-  document.getElementById('chatContainer').classList.add('hidden');
-  document.getElementById('passwordInput').value = '';
-  document.getElementById('errorMsg').textContent = '';
+  const loginContainer = document.getElementById('loginContainer');
+  const chatContainer = document.getElementById('chatContainer');
+  const passwordInput = document.getElementById('passwordInput');
+  const errorMsg = document.getElementById('errorMsg');
+  
+  if (loginContainer) loginContainer.classList.remove('hidden');
+  if (chatContainer) chatContainer.classList.add('hidden');
+  if (passwordInput) passwordInput.value = '';
+  if (errorMsg) errorMsg.textContent = '';
 }
 
 function setupEventListeners() {
