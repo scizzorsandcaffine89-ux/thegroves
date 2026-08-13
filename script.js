@@ -11,6 +11,33 @@ let messages = [];
 let supabaseClient = null;
 let useRemoteStorage = false;
 
+// Messages stick around for about 3 days, then quietly age out.
+const MESSAGE_LIFETIME_MS = 3 * 24 * 60 * 60 * 1000;
+
+function isExpired(timestamp) {
+  const t = new Date(timestamp).getTime();
+  if (Number.isNaN(t)) return false;
+  return Date.now() - t > MESSAGE_LIFETIME_MS;
+}
+
+function pruneExpiredMessages() {
+  const before = messages.length;
+  messages = messages.filter((m) => !isExpired(m.timestamp));
+  return messages.length !== before;
+}
+
+async function cleanupExpiredRemote() {
+  if (!useRemoteStorage || !supabaseClient) return;
+
+  const cutoff = new Date(Date.now() - MESSAGE_LIFETIME_MS).toISOString();
+  try {
+    const { error } = await supabaseClient.from('messages').delete().lt('timestamp', cutoff);
+    if (error) console.log('Remote cleanup error:', error.message);
+  } catch (e) {
+    console.log('Remote cleanup exception:', e.message);
+  }
+}
+
 if (window.supabase && supabaseUrl && supabaseAnonKey && !supabaseUrl.includes('PASTE_') && !supabaseAnonKey.includes('PASTE_')) {
   try {
     supabaseClient = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
@@ -57,6 +84,9 @@ async function loadMessages() {
 
       if (!error && data) {
         messages = data;
+        pruneExpiredMessages();
+        saveLocalMessages();
+        cleanupExpiredRemote();
         return;
       }
     } catch (e) {
@@ -65,6 +95,8 @@ async function loadMessages() {
   }
 
   messages = getLocalMessages();
+  pruneExpiredMessages();
+  saveLocalMessages();
 }
 
 async function saveMessages() {
@@ -154,7 +186,9 @@ function displayMessages() {
   
   messagesList.innerHTML = '';
 
-  messages.forEach((msg) => {
+  messages
+    .filter((msg) => !isExpired(msg.timestamp))
+    .forEach((msg) => {
     const messageDiv = document.createElement('div');
     const isMine = msg.user === currentUser;
     messageDiv.className = 'message ' + (isMine ? 'sent' : 'received');
@@ -293,6 +327,16 @@ async function initApp() {
   if (currentUser && passwords[currentUser]) {
     showChat();
   }
+
+  // Keep aging messages out even if the tab is left open for a while.
+  setInterval(() => {
+    const changed = pruneExpiredMessages();
+    if (changed) {
+      saveLocalMessages();
+      displayMessages();
+    }
+  }, 5 * 60 * 1000);
+
   console.log('App initialized');
 }
 
